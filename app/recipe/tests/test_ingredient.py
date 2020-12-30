@@ -13,6 +13,11 @@ from recipe.serializers import IngredientSerializer
 INGREDIENT_URL = reverse('recipe:ingredient-list')
 
 
+def detail_url(ingredient_url):
+    """Create detail url for PUT and PATCH"""
+    return reverse('recipe:ingredient-detail', args=[ingredient_url])
+
+
 class PublicIngredientApiTests(TestCase):
     """Test the publicly available ingredient API"""
 
@@ -20,9 +25,16 @@ class PublicIngredientApiTests(TestCase):
         self.client = APIClient()
 
     # From here INGREDIENT_URL testing
-    def test_login_required(self):
-        """Test that login required"""
+    def test_login_not_required_to_retrieve(self):
+        """Test that login not required to retrieve ingredients"""
         res = self.client.get(INGREDIENT_URL)
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+    def test_login_required_to_create(self):
+        """Test login required to create ingredients"""
+        payload = {'name': 'Peach'}
+        res = self.client.post(INGREDIENT_URL, payload)
 
         self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
 
@@ -50,20 +62,32 @@ class PrivateIngredientApiTests(TestCase):
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(res.data, serializer.data)
 
-    def test_ingredient_limit_to_user(self):
-        """Test that return ingredients to authenticated user"""
+    def test_any_user_can_retrieve_ingredients(self):
+        """Test that return ingredients to other authenticated user"""
         otherUser = get_user_model().objects.create_user(
             email='django@look.com',
             password='Test123'
         )
+        otherClient = APIClient()
+        otherClient.force_authenticate(otherUser)
 
-        Ingredient.objects.create(user=otherUser, name='Pepper')
-        ing = Ingredient.objects.create(user=self.user, name='butter')
-        res = self.client.get(INGREDIENT_URL)
+        ingOther = Ingredient.objects.create(user=otherUser, name='Pepper')
+        ingUser = Ingredient.objects.create(user=self.user, name='butter')
+        resultUser = self.client.get(INGREDIENT_URL)
+        resultOther = otherClient.get(INGREDIENT_URL)
 
-        self.assertEqual(res.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(res.data), 1)
-        self.assertEqual(res.data[0]['name'], ing.name)
+        serializerOther = IngredientSerializer(ingOther)
+        serializerUser = IngredientSerializer(ingUser)
+
+        self.assertEqual(resultUser.status_code, status.HTTP_200_OK)
+        self.assertEqual(resultOther.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(resultUser.data), len(resultOther.data))
+        self.assertEqual(resultUser.data[0]['name'], resultOther.data[0]['name'])
+        self.assertEqual(resultUser.data[1]['name'], resultOther.data[1]['name'])
+        self.assertIn(serializerUser.data, resultOther.data)
+        self.assertIn(serializerUser.data, resultUser.data)
+        self.assertIn(serializerOther.data, resultOther.data)
+        self.assertIn(serializerOther.data, resultUser.data)
 
     def test_create_ingredient_successful(self):
         """Test create a new ingredient"""
@@ -84,7 +108,57 @@ class PrivateIngredientApiTests(TestCase):
 
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
 
-    # From here testing dropdown functionality
+    def test_full_update_with_authorized_user(self):
+        """Test authorized user can PUT ingredient"""
+        ingredient = Ingredient.objects.create(user=self.user, name='Margarine')
+        payload = {'name': 'Butter'}
+
+        url = detail_url(ingredient.id)
+        res = self.client.put(url, payload)
+
+        ingredient.refresh_from_db()
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(ingredient.name, payload['name'])
+
+    def test_partially_update_with_authorized_user(self):
+        """Test authorized user can PATCH ingredient"""
+        ingredient = Ingredient.objects.create(user=self.user, name='Tomato')
+        payload = {'name': 'Cherry Tomato'}
+
+        url = detail_url(ingredient.id)
+        res = self.client.patch(url, payload)
+
+        ingredient.refresh_from_db()
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(ingredient.name, payload['name'])
+
+    def test_full_update_required_to_login(self):
+        """Test update ingredient required to login"""
+        ingredient = Ingredient.objects.create(user=self.user, name='Kale')
+        payload = {'name': 'Cabbage'}
+        url = detail_url(ingredient.id)
+
+        other = APIClient()
+        res = other.put(url, payload)
+
+        ingredient.refresh_from_db()
+        self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertNotEqual(ingredient.name, payload['name'])
+
+    def test_partially_update_required_to_login(self):
+        """Test partially update ingredient required to login"""
+        ingredient = Ingredient.objects.create(user=self.user, name='Orange')
+        url = detail_url(ingredient.id)
+        payload = {'name': 'Clementine'}
+
+        other = APIClient()
+        res = other.patch(url, payload)
+
+        ingredient.refresh_from_db()
+        self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertNotEqual(ingredient.name, payload['name'])
+
+    # From here testing assigned_only functionality
     def test_retrieve_ingredients_assigned_to_recipes(self):
         """Test filtering ingredients by those assigned to recipes"""
         ingredient1 = Ingredient.objects.create(user=self.user, name='Apple')

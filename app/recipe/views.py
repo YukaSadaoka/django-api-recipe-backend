@@ -8,13 +8,13 @@ from core.models import Tag, Ingredient, Recipe
 
 from recipe import serializers
 
-
-class BaseRecipeAttrViewSet(viewsets.GenericViewSet,
-                            mixins.ListModelMixin,
-                            mixins.CreateModelMixin):
+# viewsets.GenericViewSet,
+# mixins.ListModelMixin,
+# mixins.CreateModelMixin,
+class BaseRecipeAttrViewSet(viewsets.ModelViewSet):
     """Base viewset for user owned recipe attributes"""
     authentication_classes = (TokenAuthentication,)
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticatedOrReadOnly,)
 
     def get_queryset(self):
         """Return queryset to only authenticated user"""
@@ -23,12 +23,14 @@ class BaseRecipeAttrViewSet(viewsets.GenericViewSet,
             int(self.request.query_params.get('assigned_only', 0))
         )
         queryset = self.queryset
+        print(f'\n\n*******\n assigned_only: {assigned_only}')
         if assigned_only:
             queryset = queryset.filter(recipe__isnull=False)
+            return queryset.filter(
+                user=self.request.user
+            ).order_by('-name').distinct()
 
-        return queryset.filter(
-            user=self.request.user
-        ).order_by('-name').distinct()
+        return self.queryset.order_by('-name')
 
     def perform_create(self, serializer):
         """Create a new object"""

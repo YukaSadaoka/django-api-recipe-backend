@@ -13,6 +13,11 @@ from recipe.serializers import TagSerializer
 TAGS_URL = reverse('recipe:tag-list')
 
 
+def detail_url(tag_id):
+    """Create tag detail URL"""
+    return reverse('recipe:tag-detail', args=[tag_id])
+
+
 class publicTagsApiTests(TestCase):
     """Test the public available tags API"""
 
@@ -20,9 +25,16 @@ class publicTagsApiTests(TestCase):
         self.client = APIClient()
 
     # From here TAGS_URL testing
-    def test_login_required(self):
-        """Test that login required for retrieving tags"""
+    def test_login_not_required_to_retrieve(self):
+        """Test that login not required for retrieving tags"""
         res = self.client.get(TAGS_URL)
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+    def test_login_required_to_create(self):
+        """Test that login required for creating tags"""
+        payload = {'name': 'Breakfast'}
+        res = self.client.post(TAGS_URL, payload)
 
         self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
 
@@ -51,21 +63,94 @@ class PrivateTagsApiTest(TestCase):
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(res.data, serializer.data)
 
+    def test_unauthorized_user_can_retrieve_tags(self):
+        """Test that retrieving tags made by authenticated user"""
+        tag = Tag.objects.create(user=self.user, name='Breakfast')
+        serializer = TagSerializer(tag)
+
+        otherClient = APIClient()
+        res = otherClient.get(TAGS_URL)
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertIn(serializer.data, res.data)
+
+    def test_full_update_tag_with_authorized_user(self):
+        """Test authorized user can PUT tags"""
+        tag = Tag.objects.create(user=self.user, name='Dinner')
+        payload = {'name': 'Lunch'}
+
+        url = detail_url(tag.id)
+        res = self.client.put(url, payload)
+
+        tag.refresh_from_db()
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(tag.name, payload['name'])
+
+    def test_partial_update_tag_with_authorized_user(self):
+        """Test authorized user can PATCH tags"""
+        tag = Tag.objects.create(user=self.user, name='Dinner')
+        payload = {'name': 'Lunch'}
+
+        url = detail_url(tag.id)
+        res = self.client.patch(url, payload)
+
+        tag.refresh_from_db()
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(tag.name, payload['name'])
+
+    def test_full_update_limited_to_user(self):
+        """Test that unauthorized users can't PUT tags"""
+        tag = Tag.objects.create(user=self.user, name='Dinner')
+
+        url = detail_url(tag.id)
+        payload = {'name': 'Lunch'}
+        other = APIClient()
+        res = other.put(url, payload)
+
+        tag.refresh_from_db()
+        self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertNotEqual(tag.name, payload['name'])
+
+    def test_partial_update_limited_to_user(self):
+        """Test that unauthorized users can't PATCH tags"""
+        tag = Tag.objects.create(user=self.user, name='Soup')
+
+        url = detail_url(tag.id)
+        other = APIClient()
+        payload = {'name': 'Noodle'}
+        res = other.patch(url, payload)
+
+        tag.refresh_from_db()
+        self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertNotEqual(tag.name, payload['name'])
+
     def test_tags_limited_to_user(self):
         """Test that tags returned are for authenticated users"""
         otherUser = get_user_model().objects.create_user(
             email='django@look.com',
             password='Test123'
         )
+        otherClient = APIClient()
+        otherClient.force_authenticate(otherUser)
 
-        Tag.objects.create(user=otherUser, name='Dessert')
-        tag = Tag.objects.create(user=self.user, name='Chinese foods')
+        tagOther = Tag.objects.create(user=otherUser, name='Dessert')
+        tagUser = Tag.objects.create(user=self.user, name='Chinese foods')
 
-        res = self.client.get(TAGS_URL)
+        resultOther = otherClient.get(TAGS_URL)
+        resultUser = self.client.get(TAGS_URL)
 
-        self.assertEqual(res.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(res.data), 1)
-        self.assertEqual(res.data[0]['name'], tag.name)
+        serializerOther = TagSerializer(tagOther)
+        serializerUser = TagSerializer(tagUser)
+
+        self.assertEqual(resultUser.status_code, status.HTTP_200_OK)
+        self.assertEqual(resultOther.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(resultUser.data), len(resultOther.data))
+        self.assertEqual(resultUser.data[0]['name'], resultOther.data[0]['name'])
+        self.assertEqual(resultUser.data[1]['name'], resultOther.data[1]['name'])
+        self.assertIn(serializerOther.data, resultOther.data)
+        self.assertIn(serializerOther.data, resultUser.data)
+        self.assertIn(serializerUser.data, resultOther.data)
+        self.assertIn(serializerUser.data, resultUser.data)
 
     def test_create_tag_successful(self):
         """Test creating a new tag"""
@@ -86,7 +171,7 @@ class PrivateTagsApiTest(TestCase):
 
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
 
-    # From here testing a dropdown box feature
+    # From here testing a assigned_only functionality
     def test_retrieve_tags_assigned_to_recipes(self):
         """Test filtering tags by those assigned to recipes"""
         tagOne = Tag.objects.create(user=self.user, name='Breakfast')
