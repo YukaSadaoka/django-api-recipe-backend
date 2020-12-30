@@ -1,5 +1,5 @@
 from unittest.mock import patch
-from datetime import datetime
+from django.utils.timezone import now
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 
@@ -74,9 +74,12 @@ class ModelTests(TestCase):
             title='Tomato soup with garlic breads',
             time_minutes=15,
             price=3.50,
-            description="This easy vegan recipe which is perfect for winter can be done within 15 minutes!",
-            instruction="1. crush Tomatoes in a pot with a wooden spatula. Season it with pepper and salt.\n" +
-                        "2. Cat garlic clove into halve and rub it on sliced bread. Brush the surface with olive oil"
+            description="This easy vegan recipe which is perfect for "
+                        "can be done within 15 minutes!",
+            instruction="1. crush Tomatoes in a pot with a wooden spatula. "
+                        "Season it with pepper and salt.\n" +
+                        "2. Cat garlic clove into halve and rub it on sliced "
+                        "bread. Brush the surface with olive oil"
         )
 
         self.assertEqual(str(recipe), recipe.title)
@@ -88,17 +91,9 @@ class ModelTests(TestCase):
         uuid = 'test-uuid'
         mock_uuid.return_value = uuid
         file_path = models.recipe_image_file_path(None, 'myimage.jpg')
-        print(file_path)
         expected_path = f'uploads/recipe/{uuid}.jpg'
 
-        print(expected_path)
         self.assertEqual(expected_path, file_path)
-
-    # def test_image_str(self):
-    #     """Test a string representation for Image model"""
-    #     image = models.Image.objects.create(
-    #         title='Garlic bread image'
-    #     )
 
     def test_article_str(self):
         """Test the article string representation"""
@@ -107,7 +102,7 @@ class ModelTests(TestCase):
             title='Christmas dinner leftover ideas',
             author='Yuka Sadaoka',
             body='Christmas dinner leftover ideas',
-            date=datetime.now(),
+            date=now(),
         )
 
         self.assertEqual(str(article), article.title)

@@ -79,15 +79,17 @@ class PrivateIngredientApiTests(TestCase):
         serializerOther = IngredientSerializer(ingOther)
         serializerUser = IngredientSerializer(ingUser)
 
+        userData = resultUser.data
+        otherData = resultOther.data
         self.assertEqual(resultUser.status_code, status.HTTP_200_OK)
         self.assertEqual(resultOther.status_code, status.HTTP_200_OK)
         self.assertEqual(len(resultUser.data), len(resultOther.data))
-        self.assertEqual(resultUser.data[0]['name'], resultOther.data[0]['name'])
-        self.assertEqual(resultUser.data[1]['name'], resultOther.data[1]['name'])
-        self.assertIn(serializerUser.data, resultOther.data)
-        self.assertIn(serializerUser.data, resultUser.data)
-        self.assertIn(serializerOther.data, resultOther.data)
-        self.assertIn(serializerOther.data, resultUser.data)
+        self.assertEqual(userData[0]['name'], otherData[0]['name'])
+        self.assertEqual(userData[1]['name'], otherData[1]['name'])
+        self.assertIn(serializerUser.data, otherData)
+        self.assertIn(serializerUser.data, userData)
+        self.assertIn(serializerOther.data, otherData)
+        self.assertIn(serializerOther.data, userData)
 
     def test_create_ingredient_successful(self):
         """Test create a new ingredient"""
@@ -110,7 +112,7 @@ class PrivateIngredientApiTests(TestCase):
 
     def test_full_update_with_authorized_user(self):
         """Test authorized user can PUT ingredient"""
-        ingredient = Ingredient.objects.create(user=self.user, name='Margarine')
+        ingredient = Ingredient.objects.create(user=self.user, name='Oil')
         payload = {'name': 'Butter'}
 
         url = detail_url(ingredient.id)

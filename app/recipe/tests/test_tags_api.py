@@ -142,11 +142,14 @@ class PrivateTagsApiTest(TestCase):
         serializerOther = TagSerializer(tagOther)
         serializerUser = TagSerializer(tagUser)
 
+        otherData = resultOther.data
+        userData = resultUser.data
+
         self.assertEqual(resultUser.status_code, status.HTTP_200_OK)
         self.assertEqual(resultOther.status_code, status.HTTP_200_OK)
         self.assertEqual(len(resultUser.data), len(resultOther.data))
-        self.assertEqual(resultUser.data[0]['name'], resultOther.data[0]['name'])
-        self.assertEqual(resultUser.data[1]['name'], resultOther.data[1]['name'])
+        self.assertEqual(userData[0]['name'], otherData[0]['name'])
+        self.assertEqual(userData[1]['name'], otherData[1]['name'])
         self.assertIn(serializerOther.data, resultOther.data)
         self.assertIn(serializerOther.data, resultUser.data)
         self.assertIn(serializerUser.data, resultOther.data)

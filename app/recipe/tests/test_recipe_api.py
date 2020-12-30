@@ -127,8 +127,10 @@ class PrivateRecipeApiTests(TestCase):
             'time_minutes': 45,
             'price': 5.00,
             'description': 'Basic gluten free cheesecake',
-            'instruction': ('1. Mix room temperature cream cheese and butter with sugar'
-                            '2. Crush your favorite gluten free crackers and put it on the bottom '
+            'instruction': ('1. Mix room temperature cream cheese '
+                            'and butter with sugar'
+                            '2. Crush your favorite gluten free crackers '
+                            'and put it on the bottom '
                             'of backing pan. Press them to make it flat.')
         }
         res = self.client.post(RECIPE_URL, payload)
@@ -147,9 +149,12 @@ class PrivateRecipeApiTests(TestCase):
             'tags': [tag1.id, tag2.id],
             'time_minutes': 60,
             'price': 10.00,
-            'description': 'Healthy summer veggie noodle with Peanut sauce',
-            'instruction': """1. Cook your favorite asian noodle according to the package\n
-                             2. Cut summer vegetables into half inch stripes\n"""
+            'description': 'Healthy summer veggie noodle '
+                           'with Peanut sauce',
+            'instruction': """1. Cook your favorite asian noodle
+                             according to the package\n
+                            2. Cut summer vegetables into
+                             half inch stripes\n"""
         }
         res = self.client.post(RECIPE_URL, payload)
 
@@ -208,8 +213,10 @@ class PrivateRecipeApiTests(TestCase):
             'time_minutes': 35,
             'price': 14.00,
             'description': 'Creamy Healthy Carbonara',
-            'instruction': """1. Boil pasta and cut pancetta into cubes and fry them in a pan\n
-                             2. Prepare sauce. Mix eggs and shredded parmesan cheese\n"""
+            'instruction': """1. Boil pasta and cut pancetta into cubes
+                            and fry them in a pan\n
+                            2. Prepare sauce. Mix eggs and
+                             shredded parmesan cheese\n"""
 
         }
         url = detail_url(recipe.id)

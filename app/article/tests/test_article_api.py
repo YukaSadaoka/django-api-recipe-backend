@@ -1,12 +1,12 @@
 import tempfile
 import os
-
 from PIL import Image
+import time
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
-from datetime import datetime
+from django.utils.timezone import now
 
 from rest_framework import status
 from rest_framework.test import APIClient
@@ -14,7 +14,6 @@ from rest_framework.test import APIClient
 from core.models import Article
 
 from article.serializers import ArticleSerializer
-
 
 ARTICLE_URL = reverse('article:article-list')
 
@@ -35,7 +34,7 @@ def sample_article(user, **params):
         'title': 'Sample title',
         'author': 'Sample Author',
         'body': 'This is a sample article',
-        'date': datetime.now()
+        'date': now()
     }
 
     defaults.update(params)
@@ -57,6 +56,7 @@ class PublicArticleApiTests(TestCase):
 
 class PrivateArticleApiTests(TestCase):
     """Test authenticated article API access"""
+
     def setUp(self):
         self.user = get_user_model().objects.create_user(
             email='email@email.com',
@@ -80,18 +80,16 @@ class PrivateArticleApiTests(TestCase):
         self.assertEqual(len(res.data), len(serializer.data))
         self.assertEqual(res.data, serializer.data)
 
-
     def test_partial_update(self):
         """Test updating article with patch"""
         article = sample_article(self.user)
         url = detail_url(article.id)
-        payload = {'title': 'Summar cocktail ideas', 'date': datetime.now()}
+        payload = {'title': 'Summar cocktail ideas', 'date': now()}
         res = self.client.patch(url, payload)
 
         article.refresh_from_db()
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(article.title, payload['title'])
-
 
     def test_full_update_article(self):
         """Test authenticated user updates article"""
@@ -101,16 +99,18 @@ class PrivateArticleApiTests(TestCase):
         payload = {
             'title': 'Bread baking tips for absolute beginners',
             'author': 'Baking Master',
-            'body': 'If you are wondering how to make a very first baking successful',
-            'date': datetime.now()
+            'body': 'If you are wondering how to make '
+                    'a very first baking successful',
+            'date': now()
         }
         res = self.client.put(url, payload)
 
         article.refresh_from_db()
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(article.title, payload['title'])
         self.assertEqual(article.author, payload['author'])
         self.assertEqual(article.body, payload['body'])
-        self.assertNotEqual(article.date, payload['date'])
+        self.assertEqual(article.date, payload['date'])
 
     def test_partial_update_limited_to_user(self):
         """Test unauthorized user update partial article"""
@@ -135,7 +135,7 @@ class PrivateArticleApiTests(TestCase):
             'title': 'The best hit recipes in 2020',
             'author': 'Yuka Sadaoka',
             'body': 'This is the list of the most popular recipes 2020',
-            'date': datetime.now()
+            'date': now()
         }
         res = other.put(url, payload)
 
@@ -183,7 +183,3 @@ class ArticleImageUploadTests(TestCase):
         res = self.client.post(url, {'image': 'none'}, format='multipart')
 
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
-
-
-
-

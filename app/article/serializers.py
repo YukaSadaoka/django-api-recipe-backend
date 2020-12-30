@@ -18,4 +18,4 @@ class ArticleImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Article
         fields = ('id', 'image')
-        read_only_fields = ('id', )
+        read_only_fields = ('id',)

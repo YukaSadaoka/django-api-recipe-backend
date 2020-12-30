@@ -2,7 +2,7 @@ import uuid
 import os
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, \
-                                        BaseUserManager
+    BaseUserManager
 from django.conf import settings
 
 
@@ -114,12 +114,3 @@ class Article(models.Model):
 
     def __str__(self):
         return self.title
-
-
-# class Image(models.Model):
-#     user = models.ForeignKey(
-#         settings.AUTH_USER_MODEL,
-#         on_delete=models.CASCADE
-#     )
-#     title = models.CharField(max_length=255)
-#     image = models.ImageField(null=True, upload_to=recipe_image_file_path)

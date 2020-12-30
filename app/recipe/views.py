@@ -1,16 +1,15 @@
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework import viewsets, mixins, status
+from rest_framework import viewsets, status
 from rest_framework.authentication import TokenAuthentication
-from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
+from rest_framework.permissions import IsAuthenticated, \
+                                       IsAuthenticatedOrReadOnly
 
 from core.models import Tag, Ingredient, Recipe
 
 from recipe import serializers
 
-# viewsets.GenericViewSet,
-# mixins.ListModelMixin,
-# mixins.CreateModelMixin,
+
 class BaseRecipeAttrViewSet(viewsets.ModelViewSet):
     """Base viewset for user owned recipe attributes"""
     authentication_classes = (TokenAuthentication,)
@@ -22,9 +21,8 @@ class BaseRecipeAttrViewSet(viewsets.ModelViewSet):
         assigned_only = bool(
             int(self.request.query_params.get('assigned_only', 0))
         )
-        queryset = self.queryset
-        print(f'\n\n*******\n assigned_only: {assigned_only}')
         if assigned_only:
+            queryset = self.queryset
             queryset = queryset.filter(recipe__isnull=False)
             return queryset.filter(
                 user=self.request.user
