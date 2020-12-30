@@ -1,7 +1,6 @@
 import tempfile
 import os
 from PIL import Image
-import time
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
