@@ -59,9 +59,27 @@ class PublicRecipeApiTests(TestCase):
         self.client = APIClient()
 
     # From here RECIPE_URL testing
-    def test_recipe_auth_required(self):
+    def test_recipe_retriving(self):
         """Test unauthenticated user"""
         res = self.client.get(RECIPE_URL)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+    def test_recipe_login_required_to_login(self):
+        """Test login required to create a recipe"""
+        payload = {
+            'title': 'Cheesecake',
+            'time_minutes': 45,
+            'price': 5.00,
+            'description': 'Basic gluten free cheesecake',
+            'instruction': ('1. Mix room temperature cream cheese '
+                            'and butter with sugar'
+                            '2. Crush your favorite gluten free crackers '
+                            'and put it on the bottom '
+                            'of backing pan. Press them to make it flat.')
+        }
+
+        res = self.client.post(RECIPE_URL, payload)
+
         self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
 
 
@@ -89,22 +107,39 @@ class PrivateRecipeApiTests(TestCase):
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(res.data, serializer.data)
 
-    def test_recipes_limited_to_user(self):
+    def test_user_can_retrieve_all_recipes(self):
         """Test retrieving recipes for user"""
         otherUser = get_user_model().objects.create_user(
             email='other@look.com',
             password='Test123'
         )
+        otherClient = APIClient()
+        otherClient.force_authenticate(otherUser)
 
-        sample_recipe(user=otherUser)
-        sample_recipe(user=self.user)
+        recipe1 = sample_recipe(
+                        user=otherUser,
+                        title='Cheese Nachos',
+                        time_minutes=20
+                    )
+        recipe2 = sample_recipe(
+                        user=self.user,
+                        title='Chow mei chicken noodle',
+                        time_minutes=30
+                    )
 
-        res = self.client.get(RECIPE_URL)
-        recipes = Recipe.objects.filter(user=self.user)
-        serializer = RecipeSerializer(recipes, many=True)
-        self.assertEqual(res.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(res.data), 1)
-        self.assertEqual(res.data, serializer.data)
+        resultUser = self.client.get(RECIPE_URL)
+        resultOther = otherClient.get(RECIPE_URL)
+
+        serializer1 = RecipeSerializer(recipe1)
+        serializer2 = RecipeSerializer(recipe2)
+        self.assertEqual(resultUser.status_code, status.HTTP_200_OK)
+        self.assertEqual(resultOther.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(resultUser.data), len(resultOther.data))
+        self.assertEqual(resultOther.data, resultUser.data)
+        self.assertIn(serializer1.data, resultUser.data)
+        self.assertIn(serializer1.data, resultOther.data)
+        self.assertIn(serializer2.data, resultUser.data)
+        self.assertIn(serializer2.data, resultOther.data)
 
     # From here RECIPE_URL with detail testing
     def test_view_recipe_detail(self):
@@ -175,8 +210,9 @@ class PrivateRecipeApiTests(TestCase):
             'time_minutes': 18,
             'price': 2.25,
             'description': 'Traditional Miso Soup Recipe',
-            'instruction': """1. Boil water and take a broth from a sheet of Kelp\n
-                             2. Cut all vegetables into a bite size\n"""
+            'instruction': """1. Boil water and take a 
+                            broth from a sheet of Kelp\n
+                            2. Cut all vegetables into a bite size\n"""
         }
         res = self.client.post(RECIPE_URL, payload)
 
@@ -188,7 +224,7 @@ class PrivateRecipeApiTests(TestCase):
         self.assertIn(ingredient2, ingredients)
 
     # From here test updating recipes
-    def test_partial_update_recipe(self):
+    def test_partial_update_recipe_authenticated_user(self):
         """Test updating a recipe with patch"""
         recipe = sample_recipe(user=self.user)
         recipe.tags.add(sample_tag(user=self.user))
@@ -204,7 +240,7 @@ class PrivateRecipeApiTests(TestCase):
         self.assertEqual(len(tags), 1)
         self.assertIn(new_tag, tags)
 
-    def test_full_update_recipe(self):
+    def test_full_update_recipe_with_authenticated_user(self):
         """Test updating a recipe with put"""
         recipe = sample_recipe(user=self.user)
         recipe.tags.add(sample_tag(user=self.user))
@@ -228,6 +264,40 @@ class PrivateRecipeApiTests(TestCase):
         self.assertEqual(recipe.price, payload['price'])
         tags = recipe.tags.all()
         self.assertEqual(len(tags), 0)
+
+    def test_full_update_recipe_with_unauthenticated_user(self):
+        """Test that unauthenticated user PUT a recipe"""
+        recipe = sample_recipe(user=self.user)
+        payload = {
+            'title': 'Spaghetti carbonara',
+            'time_minutes': 35,
+            'price': recipe.price,
+            'description': 'Creamy Healthy Carbonara',
+            'instruction': recipe.instruction
+        }
+
+        unauthedClient = APIClient()
+        url = detail_url(recipe.id)
+        res = unauthedClient.put(url, payload)
+
+        recipe.refresh_from_db()
+        self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertNotEqual(recipe.title, payload['title'])
+        self.assertNotEqual(recipe.time_minutes, payload['time_minutes'])
+        self.assertNotEqual(recipe.description, payload['description'])
+
+    def test_partial_update_recipe_with_unauthenticated_user(self):
+        """Test that unauthenticated user PATCH a recipe"""
+        recipe = sample_recipe(user=self.user)
+        payload = {'time_minutes': 20}
+
+        unauthUser = APIClient()
+        url = detail_url(recipe.id)
+        res = unauthUser.patch(url, payload)
+
+        recipe.refresh_from_db()
+        self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertNotEqual(recipe.time_minutes, payload['time_minutes'])
 
 
 class RecipeImageUploadTests(TestCase):

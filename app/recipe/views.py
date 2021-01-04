@@ -2,8 +2,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import viewsets, status
 from rest_framework.authentication import TokenAuthentication
-from rest_framework.permissions import IsAuthenticated, \
-                                       IsAuthenticatedOrReadOnly
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
 from core.models import Tag, Ingredient, Recipe
 
@@ -52,14 +51,14 @@ class RecipeViewSet(viewsets.ModelViewSet):
     serializer_class = serializers.RecipeSerializer
     queryset = Recipe.objects.all()
     authentication_classes = (TokenAuthentication,)
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticatedOrReadOnly,)
 
     def _params_to_int(self, qs):
         """Convert a list of string IDs to a list of integers"""
         return [int(str_id) for str_id in qs.split(',')]
 
     def get_queryset(self):
-        """Retrieving the recipes for the authenticated user"""
+        """Retrieving the recipes"""
         tags = self.request.query_params.get('tags')
         ingredients = self.request.query_params.get('ingredients')
         queryset = self.queryset
@@ -70,7 +69,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
             ing_ids = self._params_to_int(ingredients)
             queryset = queryset.filter(ingredients__id__in=ing_ids)
 
-        return queryset.filter(user=self.request.user)
+        return queryset.order_by('-id')
 
     def get_serializer_class(self):
         """Return appropriate serializer class"""
